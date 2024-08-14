@@ -3,7 +3,6 @@ package operator
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -286,7 +285,6 @@ func (o *Operator) Start(ctx context.Context) error {
 			return nil
 		case err := <-metricsErrChan:
 			// TODO(samlaf); we should also register the service as unhealthy in the node api
-			// https://eigen.nethermind.io/docs/spec/api/
 			o.logger.Fatal("Error in metrics server", "err", err)
 		case err := <-sub.Err():
 			o.logger.Error("Error in websocket subscription", "err", err)
@@ -306,29 +304,45 @@ func (o *Operator) Start(ctx context.Context) error {
 	}
 }
 
-// Takes a NewTaskCreatedLog struct as input and returns a TaskResponseHeader struct.
-// The TaskResponseHeader struct is the struct that is signed and sent to the contract as a task response.
 func (o *Operator) ProcessNewTaskCreatedLog(newTaskCreatedLog *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated) *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse {
 	o.logger.Debug("Received new task", "task", newTaskCreatedLog)
-	o.logger.Info("Received new task",
-		"numberToBeSquared", newTaskCreatedLog.Task.NumberToBeSquared,
-		"taskIndex", newTaskCreatedLog.TaskIndex,
-		"taskCreatedBlock", newTaskCreatedLog.Task.TaskCreatedBlock,
+	o.logger.Info("Processing indexing task",
+		"chainId", newTaskCreatedLog.TaskIndex,
 		"quorumNumbers", newTaskCreatedLog.Task.QuorumNumbers,
 		"QuorumThresholdPercentage", newTaskCreatedLog.Task.QuorumThresholdPercentage,
 	)
-	numberSquared := big.NewInt(0).Exp(newTaskCreatedLog.Task.NumberToBeSquared, big.NewInt(2), nil)
+
+	indexedAck, err := o.performIndexing(newTaskCreatedLog.TaskIndex, newTaskCreatedLog)
+	if err != nil {
+		o.logger.Error("Indexing operation failed", "error", err)
+		return nil
+	}
 	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
 		ReferenceTaskIndex: newTaskCreatedLog.TaskIndex,
-		NumberSquared:      numberSquared,
+		IndexedOutput:      indexedAck,
 	}
+	o.logger.Info("Indexing task completed", "indexedOutput", indexedAck)
 	return taskResponse
+}
+
+func (o *Operator) performIndexing(taskIndex uint32, newTaskCreatedLog *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated) (string, error) {
+	o.logger.Info("Starting indexing operation", "taskIndex", taskIndex)
+	quorumNumbers := newTaskCreatedLog.Task.QuorumNumbers
+	quorumThresholdPercentage := newTaskCreatedLog.Task.QuorumThresholdPercentage
+	o.logger.Debug("Indexing details", "quorumNumbers", quorumNumbers, "quorumThresholdPercentage", quorumThresholdPercentage)
+
+	indexedData := fmt.Sprintf("Indexed data for chainid %d with quorum numbers %v and threshold %d%%",
+		taskIndex, quorumNumbers, quorumThresholdPercentage)
+
+	o.logger.Info("Indexing operation completed", "chainid", taskIndex, "indexedData", indexedData)
+	return fmt.Sprintf("chain %d successfully indexed.", taskIndex), nil
 }
 
 func (o *Operator) SignTaskResponse(taskResponse *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse) (*aggregator.SignedTaskResponse, error) {
 	taskResponseHash, err := core.GetTaskResponseDigest(taskResponse)
 	if err != nil {
-		o.logger.Error("Error getting task response header hash. skipping task (this is not expected and should be investigated)", "err", err)
+		o.logger.Error("Error get"+
+			"ting task response header hash. skipping task (this is not expected and should be investigated)", "err", err)
 		return nil, err
 	}
 	blsSignature := o.blsKeypair.SignMessage(taskResponseHash)

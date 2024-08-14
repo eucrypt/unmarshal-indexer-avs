@@ -20,8 +20,8 @@ func AbiEncodeTaskResponse(h *cstaskmanager.IIncredibleSquaringTaskManagerTaskRe
 			Type: "uint32",
 		},
 		{
-			Name: "numberSquared",
-			Type: "uint256",
+			Name: "indexedOutput",
+			Type: "string",
 		},
 	})
 	if err != nil {
@@ -43,7 +43,6 @@ func AbiEncodeTaskResponse(h *cstaskmanager.IIncredibleSquaringTaskManagerTaskRe
 
 // GetTaskResponseDigest returns the hash of the TaskResponse, which is what operators sign over
 func GetTaskResponseDigest(h *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse) ([32]byte, error) {
-
 	encodeTaskResponseByte, err := AbiEncodeTaskResponse(h)
 	if err != nil {
 		return [32]byte{}, err
