@@ -3,12 +3,12 @@ package operator
 import (
 	"context"
 	"fmt"
-	"math/big"
-	"os"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
+	"log"
+	"os"
+	"os/exec"
 
 	"github.com/Layr-Labs/incredible-squaring-avs/aggregator"
 	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
@@ -311,16 +311,28 @@ func (o *Operator) Start(ctx context.Context) error {
 func (o *Operator) ProcessNewTaskCreatedLog(newTaskCreatedLog *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated) *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse {
 	o.logger.Debug("Received new task", "task", newTaskCreatedLog)
 	o.logger.Info("Received new task",
-		"numberToBeSquared", newTaskCreatedLog.Task.NumberToBeSquared,
+		"ChainID", newTaskCreatedLog.Task.ChainId,
 		"taskIndex", newTaskCreatedLog.TaskIndex,
 		"taskCreatedBlock", newTaskCreatedLog.Task.TaskCreatedBlock,
 		"quorumNumbers", newTaskCreatedLog.Task.QuorumNumbers,
 		"QuorumThresholdPercentage", newTaskCreatedLog.Task.QuorumThresholdPercentage,
 	)
-	numberSquared := big.NewInt(0).Exp(newTaskCreatedLog.Task.NumberToBeSquared, big.NewInt(2), nil)
+	go func() {
+		cmd := exec.Command("make", "run-indexer")
+
+		// Redirect the command's stdout and stderr to the application's stdout and stderr
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		err := cmd.Run()
+		if err != nil {
+			log.Fatalf("Failed to execute make run-indexer: %v", err)
+		}
+	}()
+	log.Println("make run-indexer executed successfully")
 	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
 		ReferenceTaskIndex: newTaskCreatedLog.TaskIndex,
-		NumberSquared:      numberSquared,
+		NumberSquared:      newTaskCreatedLog.Task.ChainId,
 	}
 	return taskResponse
 }

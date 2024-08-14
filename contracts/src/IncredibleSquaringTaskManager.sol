@@ -81,13 +81,13 @@ contract IncredibleSquaringTaskManager is
     /* FUNCTIONS */
     // NOTE: this function creates new task, assigns it a taskId
     function createNewTask(
-        uint256 numberToBeSquared,
+        uint256 chainId,
         uint32 quorumThresholdPercentage,
         bytes calldata quorumNumbers
     ) external onlyTaskGenerator {
         // create a new task struct
         Task memory newTask;
-        newTask.numberToBeSquared = numberToBeSquared;
+        newTask.chainId = chainId;
         newTask.taskCreatedBlock = uint32(block.number);
         newTask.quorumThresholdPercentage = quorumThresholdPercentage;
         newTask.quorumNumbers = quorumNumbers;
@@ -111,7 +111,7 @@ contract IncredibleSquaringTaskManager is
         // check that the task is valid, hasn't been responsed yet, and is being responsed in time
         require(
             keccak256(abi.encode(task)) ==
-                allTaskHashes[taskResponse.referenceTaskIndex],
+            allTaskHashes[taskResponse.referenceTaskIndex],
             "supplied task does not match the one recorded in the contract"
         );
         // some logical checks
@@ -121,7 +121,7 @@ contract IncredibleSquaringTaskManager is
         );
         require(
             uint32(block.number) <=
-                taskCreatedBlock + TASK_RESPONSE_WINDOW_BLOCK,
+            taskCreatedBlock + TASK_RESPONSE_WINDOW_BLOCK,
             "Aggregator has responded to the task too late"
         );
 
@@ -134,11 +134,11 @@ contract IncredibleSquaringTaskManager is
             QuorumStakeTotals memory quorumStakeTotals,
             bytes32 hashOfNonSigners
         ) = checkSignatures(
-                message,
-                quorumNumbers,
-                taskCreatedBlock,
-                nonSignerStakesAndSignature
-            );
+            message,
+            quorumNumbers,
+            taskCreatedBlock,
+            nonSignerStakesAndSignature
+        );
 
         // check that signatories own at least a threshold percentage of each quourm
         for (uint i = 0; i < quorumNumbers.length; i++) {
@@ -146,9 +146,9 @@ contract IncredibleSquaringTaskManager is
             // signed stake > total stake
             require(
                 quorumStakeTotals.signedStakeForQuorum[i] *
-                    _THRESHOLD_DENOMINATOR >=
-                    quorumStakeTotals.totalStakeForQuorum[i] *
-                        uint8(quorumThresholdPercentage),
+                _THRESHOLD_DENOMINATOR >=
+                quorumStakeTotals.totalStakeForQuorum[i] *
+                uint8(quorumThresholdPercentage),
                 "Signatories do not own at least threshold percentage of a quorum"
             );
         }
@@ -180,7 +180,7 @@ contract IncredibleSquaringTaskManager is
         BN254.G1Point[] memory pubkeysOfNonSigningOperators
     ) external {
         uint32 referenceTaskIndex = taskResponse.referenceTaskIndex;
-        uint256 numberToBeSquared = task.numberToBeSquared;
+        uint256 chainId = task.chainId;
         // some logical checks
         require(
             allTaskResponses[referenceTaskIndex] != bytes32(0),
@@ -188,7 +188,7 @@ contract IncredibleSquaringTaskManager is
         );
         require(
             allTaskResponses[referenceTaskIndex] ==
-                keccak256(abi.encode(taskResponse, taskResponseMetadata)),
+            keccak256(abi.encode(taskResponse, taskResponseMetadata)),
             "Task response does not match the one recorded in the contract"
         );
         require(
@@ -198,13 +198,13 @@ contract IncredibleSquaringTaskManager is
 
         require(
             uint32(block.number) <=
-                taskResponseMetadata.taskResponsedBlock +
-                    TASK_CHALLENGE_WINDOW_BLOCK,
+            taskResponseMetadata.taskResponsedBlock +
+            TASK_CHALLENGE_WINDOW_BLOCK,
             "The challenge period for this task has already expired."
         );
 
         // logic for checking whether challenge is valid or not
-        uint256 actualSquaredOutput = numberToBeSquared * numberToBeSquared;
+        uint256 actualSquaredOutput = chainId * chainId;
         bool isResponseCorrect = (actualSquaredOutput ==
             taskResponse.numberSquared);
 
@@ -220,7 +220,7 @@ contract IncredibleSquaringTaskManager is
         );
         for (uint i = 0; i < pubkeysOfNonSigningOperators.length; i++) {
             hashesOfPubkeysOfNonSigningOperators[
-                i
+            i
             ] = pubkeysOfNonSigningOperators[i].hashG1Point();
         }
 

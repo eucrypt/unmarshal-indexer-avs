@@ -77,6 +77,10 @@ start-operator: ##
 	go run operator/cmd/main.go --config config-files/operator.anvil.yaml \
 		2>&1 | zap-pretty
 
+start-event-listner: ##
+	go run event-listner/cmd/main.go --config config-files/operator.anvil.yaml \
+		2>&1 | zap-pretty
+
 start-challenger: ## 
 	go run challenger/cmd/main.go --config config-files/challenger.yaml \
 		--credible-squaring-deployment ${DEPLOYMENT_FILES_DIR}/credible_squaring_avs_deployment_output.json \
@@ -101,3 +105,5 @@ tests-contract: ## runs all forge tests
 tests-integration: ## runs all integration tests
 	go test ./tests/integration/... -v -count=1
 
+run-indexer:
+	cd /Users/pujithm/workspace/unmarshal/unmarshal-secondary-indexer &&  go run cmd/main.go
